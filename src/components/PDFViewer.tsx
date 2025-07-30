@@ -1,18 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 
-// Dynamically import react-pdf components
-const { Document, Page } = dynamic(() => import('react-pdf'), {
+// Dynamically import react-pdf components with worker configuration
+const PDFViewer = dynamic(() => import('react-pdf').then(mod => {
+  // Set up PDF.js worker (only in browser)
+  mod.pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${mod.pdfjs.version}/build/pdf.worker.min.js`
+  return { Document: mod.Document, Page: mod.Page }
+}), {
   ssr: false
 })
 
-// Set up PDF.js worker (only in browser)
-if (typeof window !== 'undefined') {
-  const { pdfjs } = require('react-pdf')
-  pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`
-}
+const { Document, Page } = PDFViewer
 
 interface PDFObject {
   id: string
@@ -45,7 +45,7 @@ export default function PDFViewer({ pdfFile }: Props) {
   const [processing, setProcessing] = useState(false)
   const [scale, setScale] = useState(1.0)
 
-  const loadPageObjects = async (page: number) => {
+  const loadPageObjects = useCallback(async (page: number) => {
     setLoading(true)
     try {
       const response = await fetch(
@@ -60,11 +60,11 @@ export default function PDFViewer({ pdfFile }: Props) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [pdfFile.fileId])
 
   useEffect(() => {
     loadPageObjects(currentPage)
-  }, [currentPage, pdfFile.fileId, loadPageObjects])
+  }, [currentPage, loadPageObjects])
 
   const handleObjectClick = (objectId: string) => {
     const newSelected = new Set(selectedObjects)
