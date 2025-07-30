@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 
 // Set up PDF.js worker
@@ -36,11 +36,6 @@ export default function PDFViewer({ pdfFile }: Props) {
   const [loading, setLoading] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [scale, setScale] = useState(1.0)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    loadPageObjects(currentPage)
-  }, [currentPage, pdfFile.fileId])
 
   const loadPageObjects = async (page: number) => {
     setLoading(true)
@@ -59,6 +54,10 @@ export default function PDFViewer({ pdfFile }: Props) {
     }
   }
 
+  useEffect(() => {
+    loadPageObjects(currentPage)
+  }, [currentPage, pdfFile.fileId])
+
   const handleObjectClick = (objectId: string) => {
     const newSelected = new Set(selectedObjects)
     if (newSelected.has(objectId)) {
@@ -66,23 +65,6 @@ export default function PDFViewer({ pdfFile }: Props) {
     } else {
       newSelected.add(objectId)
     }
-    setSelectedObjects(newSelected)
-  }
-
-  const handleSelectSimilar = async (referenceObject: PDFObject) => {
-    const similar = pageObjects.filter(obj => {
-      if (obj.type !== referenceObject.type) return false
-      
-      if (obj.type === 'text' && referenceObject.type === 'text') {
-        return obj.text === referenceObject.text || 
-               (obj.color === referenceObject.color && obj.opacity === referenceObject.opacity)
-      }
-      
-      return obj.color === referenceObject.color && obj.opacity === referenceObject.opacity
-    })
-
-    const newSelected = new Set(selectedObjects)
-    similar.forEach(obj => newSelected.add(obj.id))
     setSelectedObjects(newSelected)
   }
 
@@ -247,7 +229,7 @@ export default function PDFViewer({ pdfFile }: Props) {
                       <div className="font-medium">{obj.type}</div>
                       {obj.text && (
                         <div className="text-gray-600 truncate">
-                          "{obj.text}"
+                          &ldquo;{obj.text}&rdquo;
                         </div>
                       )}
                       <div className="text-gray-500 text-xs mt-1">
