@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import type { PDFPageProxy } from 'react-pdf'
 
 // Dynamically import Document component
 const Document = dynamic(() => import('react-pdf').then(mod => {
