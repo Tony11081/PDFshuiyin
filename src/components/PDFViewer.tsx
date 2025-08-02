@@ -350,7 +350,7 @@ export default function PDFViewer({ pdfFile }: Props) {
             </div>
           </motion.div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
