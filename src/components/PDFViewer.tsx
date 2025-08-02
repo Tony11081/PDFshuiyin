@@ -2,20 +2,22 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { pdfjs } from 'react-pdf'
 
-// Dynamically import Document component
-const Document = dynamic(() => import('react-pdf').then(mod => {
-  // Set up PDF.js worker (only in browser)
-  mod.pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${mod.pdfjs.version}/build/pdf.worker.min.js`
-  return mod.Document
-}), {
-  ssr: false
-})
-
-// Dynamically import Page component
-const Page = dynamic(() => import('react-pdf').then(mod => mod.Page), {
-  ssr: false
-})
+// Dynamically import Document and Page components
+const PDFComponents = dynamic(
+  () => import('react-pdf').then(mod => {
+    // Set up PDF.js worker (only in browser)
+    if (typeof window !== 'undefined') {
+      pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`
+    }
+    return {
+      Document: mod.Document,
+      Page: mod.Page
+    }
+  }),
+  { ssr: false }
+)
 
 interface PDFObject {
   id: string
@@ -199,16 +201,16 @@ export default function PDFViewer({ pdfFile }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
             <div className="relative border border-gray-300 inline-block">
-              <Document
+              <PDFComponents.Document
                 file={`http://localhost:8000/api/download/${pdfFile.fileId}`}
                 loading={<div className="p-8">加载 PDF...</div>}
               >
-                <Page
+                <PDFComponents.Page
                   pageNumber={currentPage}
                   scale={scale}
                   loading={<div className="p-8">渲染页面...</div>}
                 />
-              </Document>
+              </PDFComponents.Document>
               
               {!loading && pageObjects.map(renderObjectOverlay)}
             </div>
