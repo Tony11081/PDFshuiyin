@@ -298,7 +298,7 @@ export default function PDFViewer({ pdfFile }: Props) {
                         
                         {obj.text && (
                           <div className="text-white/80 text-sm mb-2 line-clamp-2">
-                            "{obj.text}"
+                            &ldquo;{obj.text}&rdquo;
                           </div>
                         )}
                         
