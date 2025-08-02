@@ -1,43 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import dynamic from 'next/dynamic'
 import { motion, AnimatePresence } from 'framer-motion'
-import { pdfjs } from 'react-pdf'
-import apiClient from '@/lib/api'
+import { Document, Page, pdfjs } from 'react-pdf'
+import apiClient, { type PDFFile, type PDFObject } from '@/lib/api'
 
-// Dynamically import Document and Page components
-const PDFComponents = dynamic(
-  () => import('react-pdf').then(mod => {
-    // Set up PDF.js worker (only in browser)
-    if (typeof window !== 'undefined') {
-      pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`
-    }
-    return {
-      Document: mod.Document,
-      Page: mod.Page
-    }
-  }),
-  { ssr: false }
-)
-
-interface PDFObject {
-  id: string
-  type: 'text' | 'image' | 'path'
-  bbox: [number, number, number, number]
-  text?: string
-  color?: number
-  opacity?: number
-}
-
-interface PDFFile {
-  fileId: string
-  filename: string
-  pages: Array<{
-    page: number
-    width: number
-    height: number
-  }>
+// Set up PDF.js worker
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`
 }
 
 interface Props {
@@ -205,7 +175,7 @@ export default function PDFViewer({ pdfFile }: Props) {
             className="xl:col-span-3"
           >
             <div className="relative bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-100">
-              <PDFComponents.Document
+              <Document
                 file={apiClient.getPDFUrl(pdfFile.fileId)}
                 loading={
                   <div className="flex items-center justify-center p-16">
@@ -220,7 +190,7 @@ export default function PDFViewer({ pdfFile }: Props) {
                   </div>
                 }
               >
-                <PDFComponents.Page
+                <Page
                   pageNumber={currentPage}
                   scale={scale}
                   loading={
@@ -236,7 +206,7 @@ export default function PDFViewer({ pdfFile }: Props) {
                     </div>
                   }
                 />
-              </PDFComponents.Document>
+              </Document>
               
               {!loading && pageObjects.map(renderObjectOverlay)}
             </div>

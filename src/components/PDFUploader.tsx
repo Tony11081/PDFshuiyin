@@ -4,18 +4,20 @@ import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
-import PDFViewer from './PDFViewer'
-import apiClient from '@/lib/api'
+import dynamic from 'next/dynamic'
+import apiClient, { type PDFFile } from '@/lib/api'
 
-interface PDFFile {
-  fileId: string
-  filename: string
-  pages: Array<{
-    page: number
-    width: number
-    height: number
-  }>
-}
+const PDFViewer = dynamic(() => import('./PDFViewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-16">
+      <div className="text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-white">Loading PDF viewer...</p>
+      </div>
+    </div>
+  )
+})
 
 export default function PDFUploader() {
   const [uploadedPDF, setUploadedPDF] = useState<PDFFile | null>(null)
