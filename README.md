@@ -60,17 +60,35 @@ python main.py
 cd pdf-watermark-remover
 ```
 
-2. 安装 Node.js 依赖：
+2. 配置环境变量：
+```bash
+cp .env.example .env.local
+# 编辑 .env.local 设置正确的 API 地址
+```
+
+3. 安装 Node.js 依赖：
 ```bash
 npm install
 ```
 
-3. 启动开发服务器：
+4. 启动开发服务器：
 ```bash
 npm run dev
 ```
 
 前端应用将在 `http://localhost:3000` 启动
+
+### 环境配置
+
+在 `.env.local` 文件中配置后端 API 地址：
+
+```bash
+# 开发环境
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+# 生产环境（需要设置为实际的后端 API 地址）
+# NEXT_PUBLIC_API_URL=https://your-backend-api.com
+```
 
 ## 使用方法
 
