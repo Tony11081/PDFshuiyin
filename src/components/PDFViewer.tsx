@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { motion, AnimatePresence } from 'framer-motion'
 import { pdfjs } from 'react-pdf'
+import apiClient from '@/lib/api'
 
 // Dynamically import Document and Page components
 const PDFComponents = dynamic(
@@ -53,13 +55,8 @@ export default function PDFViewer({ pdfFile }: Props) {
   const loadPageObjects = useCallback(async (page: number) => {
     setLoading(true)
     try {
-      const response = await fetch(
-        `http://localhost:8000/api/objects?fileId=${pdfFile.fileId}&page=${page}`
-      )
-      if (response.ok) {
-        const objects = await response.json()
-        setPageObjects(objects)
-      }
+      const objects = await apiClient.getPageObjects(pdfFile.fileId, page)
+      setPageObjects(objects)
     } catch (error) {
       console.error('Failed to load page objects:', error)
     } finally {
@@ -94,31 +91,12 @@ export default function PDFViewer({ pdfFile }: Props) {
         objectIds: Array.from(selectedObjects)
       }]
 
-      const response = await fetch('http://localhost:8000/api/remove', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileId: pdfFile.fileId,
-          selections
-        }),
-      })
+      const result = await apiClient.removeWatermarks(pdfFile.fileId, selections)
+      const taskId = result.taskId
 
-      if (response.ok) {
-        const result = await response.json()
-        const taskId = result.taskId
-
-        const resultResponse = await fetch(
-          `http://localhost:8000/api/result?taskId=${taskId}`
-        )
-        
-        if (resultResponse.ok) {
-          const resultData = await resultResponse.json()
-          if (resultData.status === 'done') {
-            window.open(`http://localhost:8000${resultData.downloadUrl}`, '_blank')
-          }
-        }
+      const resultData = await apiClient.getResult(taskId)
+      if (resultData.status === 'done') {
+        window.open(apiClient.getDownloadUrl(taskId), '_blank')
       }
     } catch (error) {
       console.error('Failed to remove watermarks:', error)
@@ -153,20 +131,35 @@ export default function PDFViewer({ pdfFile }: Props) {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">
-            {pdfFile.filename} - 第 {currentPage} 页 / 共 {pdfFile.pages.length} 页
-          </h2>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6 }}
+      className="max-w-7xl mx-auto"
+    >
+      <motion.div 
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        className="glass-card rounded-2xl p-6 md:p-8"
+      >
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 space-y-4 lg:space-y-0">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-gray-800">
+              {pdfFile.filename}
+            </h2>
+            <p className="text-gray-600">
+              Page {currentPage} of {pdfFile.pages.length} • {selectedObjects.size} elements selected
+            </p>
+          </div>
           
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <label className="text-sm text-gray-600">缩放:</label>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Scale:</label>
               <select 
                 value={scale} 
                 onChange={(e) => setScale(parseFloat(e.target.value))}
-                className="border rounded px-2 py-1 text-sm"
+                className="border border-gray-300 rounded-lg px-3 py-1 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value={0.5}>50%</option>
                 <option value={0.75}>75%</option>
@@ -176,102 +169,186 @@ export default function PDFViewer({ pdfFile }: Props) {
               </select>
             </div>
             
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage <= 1}
-              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-            >
-              上一页
-            </button>
-            
-            <span className="text-sm text-gray-600">
-              {currentPage} / {pdfFile.pages.length}
-            </span>
-            
-            <button
-              onClick={() => setCurrentPage(Math.min(pdfFile.pages.length, currentPage + 1))}
-              disabled={currentPage >= pdfFile.pages.length}
-              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-            >
-              下一页
-            </button>
+            <div className="flex items-center gap-2">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage <= 1}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+              >
+                Previous
+              </motion.button>
+              
+              <span className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-medium">
+                {currentPage} / {pdfFile.pages.length}
+              </span>
+              
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setCurrentPage(Math.min(pdfFile.pages.length, currentPage + 1))}
+                disabled={currentPage >= pdfFile.pages.length}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 transition-colors"
+              >
+                Next
+              </motion.button>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            <div className="relative border border-gray-300 inline-block">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+          <motion.div 
+            initial={{ x: -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="xl:col-span-3"
+          >
+            <div className="relative bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-100">
               <PDFComponents.Document
-                file={`http://localhost:8000/api/download/${pdfFile.fileId}`}
-                loading={<div className="p-8">加载 PDF...</div>}
+                file={apiClient.getPDFUrl(pdfFile.fileId)}
+                loading={
+                  <div className="flex items-center justify-center p-16">
+                    <div className="text-center space-y-4">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                        className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"
+                      />
+                      <p className="text-gray-600">Loading PDF...</p>
+                    </div>
+                  </div>
+                }
               >
                 <PDFComponents.Page
                   pageNumber={currentPage}
                   scale={scale}
-                  loading={<div className="p-8">渲染页面...</div>}
+                  loading={
+                    <div className="flex items-center justify-center p-16">
+                      <div className="text-center space-y-4">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          className="w-8 h-8 border-3 border-purple-500 border-t-transparent rounded-full mx-auto"
+                        />
+                        <p className="text-gray-600">Rendering page...</p>
+                      </div>
+                    </div>
+                  }
                 />
               </PDFComponents.Document>
               
               {!loading && pageObjects.map(renderObjectOverlay)}
             </div>
-          </div>
+          </motion.div>
           
-          <div className="lg:col-span-1">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-semibold mb-3">
-                页面对象 ({pageObjects.length})
-              </h3>
+          <motion.div 
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="xl:col-span-1"
+          >
+            <div className="glass rounded-2xl p-6 h-fit sticky top-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-white">
+                  Elements ({pageObjects.length})
+                </h3>
+                <div className="px-3 py-1 bg-white/20 rounded-full text-sm text-white">
+                  {selectedObjects.size} selected
+                </div>
+              </div>
               
               {loading ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <div className="text-sm text-gray-600">加载中...</div>
+                <div className="text-center py-8">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    className="w-8 h-8 border-3 border-white border-t-transparent rounded-full mx-auto mb-4"
+                  />
+                  <p className="text-white/80 text-sm">Analyzing elements...</p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {pageObjects.map((obj) => (
-                    <div
-                      key={obj.id}
-                      className={`p-2 rounded text-xs cursor-pointer transition-colors ${
-                        selectedObjects.has(obj.id)
-                          ? 'bg-red-100 border border-red-300'
-                          : 'bg-white border border-gray-200 hover:bg-gray-50'
-                      }`}
-                      onClick={() => handleObjectClick(obj.id)}
-                    >
-                      <div className="font-medium">{obj.type}</div>
-                      {obj.text && (
-                        <div className="text-gray-600 truncate">
-                          &ldquo;{obj.text}&rdquo;
+                <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
+                  <AnimatePresence>
+                    {pageObjects.map((obj, index) => (
+                      <motion.div
+                        key={obj.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ delay: index * 0.05 }}
+                        className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
+                          selectedObjects.has(obj.id)
+                            ? 'bg-red-500/20 border-2 border-red-400 scale-105'
+                            : 'bg-white/10 border border-white/20 hover:bg-white/20 hover:scale-102'
+                        }`}
+                        onClick={() => handleObjectClick(obj.id)}
+                        whileHover={{ scale: selectedObjects.has(obj.id) ? 1.05 : 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-white font-medium capitalize">
+                            {obj.type}
+                          </span>
+                          <span className={`w-3 h-3 rounded-full ${
+                            obj.type === 'text' ? 'bg-blue-400' :
+                            obj.type === 'image' ? 'bg-green-400' : 'bg-purple-400'
+                          }`} />
                         </div>
-                      )}
-                      <div className="text-gray-500 text-xs mt-1">
-                        位置: ({Math.round(obj.bbox[0])}, {Math.round(obj.bbox[1])})
-                      </div>
-                    </div>
-                  ))}
+                        
+                        {obj.text && (
+                          <div className="text-white/80 text-sm mb-2 line-clamp-2">
+                            "{obj.text}"
+                          </div>
+                        )}
+                        
+                        <div className="text-white/60 text-xs">
+                          Position: ({Math.round(obj.bbox[0])}, {Math.round(obj.bbox[1])})
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               )}
               
-              <div className="mt-4 space-y-2">
-                <button
+              <div className="mt-6 space-y-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedObjects(new Set())}
-                  className="w-full px-3 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                  className="w-full px-4 py-3 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition-colors disabled:opacity-50"
                   disabled={selectedObjects.size === 0}
                 >
-                  清除选择 ({selectedObjects.size})
-                </button>
+                  Clear Selection ({selectedObjects.size})
+                </motion.button>
                 
-                <button
+                <motion.button
+                  whileHover={{ scale: processing ? 1 : 1.02 }}
+                  whileTap={{ scale: processing ? 1 : 0.98 }}
                   onClick={handleRemoveWatermarks}
                   disabled={selectedObjects.size === 0 || processing}
-                  className="w-full px-3 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                  className={`w-full px-4 py-3 rounded-xl font-medium transition-all ${
+                    processing 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 animate-glow'
+                  } text-white disabled:opacity-50`}
                 >
-                  {processing ? '处理中...' : `删除选中的水印 (${selectedObjects.size})`}
-                </button>
+                  {processing ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                      />
+                      Processing...
+                    </div>
+                  ) : (
+                    `Remove Watermarks (${selectedObjects.size})`
+                  )}
+                </motion.button>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
